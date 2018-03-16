@@ -27,6 +27,7 @@ import urllib
 import argparse
 import logging
 import time
+import dns.resolver
 
 section_name="default"
 debug = False
@@ -49,8 +50,8 @@ baseurl = 'https://%s' % edgerc.get(section_name, 'host')
 session.auth = EdgeGridAuth.from_edgerc(edgerc, section_name)
 
 if hasattr(edgerc, "debug") or arguments['debug']:
-	client.HTTPConnection.debuglevel = 1
-	logging.basicConfig()
+    client.HTTPConnection.debuglevel = 1
+    logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
     requests_log = logging.getLogger("requests.packages.urllib3")
     requests_log.setLevel(logging.DEBUG)
@@ -77,35 +78,53 @@ location = location_result['locations'][rand_location]['id']
 print ("We will make our call from " + location + "\n")
 
 # Request the dig request the {OPEN} Developer Site IP information
-dig_parameters = { "hostName":"gw-weight-apac-only.prod.aws.skyscnr.com"}
+dig_parameters = { "hostName":"gw-geo-apex.prod.aws.skyscnr.com."}
 
 total = 0
+euwest = 0
+eucentral = 0
 southeast = 0
 northeast = 0
 notrecognised = 0
+euwest1ips = []
+eucentral1ips = []
+apnortheast1ips = []
+apsoutheast1ips = []
+
+euwest1query = dns.resolver.query('gw51.skyscanner.net', 'A')
+for answer in euwest1query.rrset:
+	euwest1ips.append(str(answer))
+
+eucentral1query = dns.resolver.query('gw53.skyscanner.net', 'A')
+for answer in eucentral1query.rrset:
+	eucentral1ips.append(str(answer))
+
+apsoutheast1query = dns.resolver.query('gw52.skyscanner.net', 'A')
+for answer in apsoutheast1query.rrset:
+	apsoutheast1ips.append(str(answer))
+
+apnortheast1query = dns.resolver.query('gw54.skyscanner.net', 'A')
+for answer in apnortheast1query.rrset:
+	apnortheast1ips.append(str(answer))
 
 
 for num in range(1,100):
-	print("There are {} locations that can run dig in the Akamai Network".format(location_count))
 	rand_location = randint(0, location_count-1)
 	location = location_result['locations'][rand_location]['id']
-	print ("We will make our call from " + location + "\n")
+	# print ("We will make our call from " + location)
 	dig_result = httpCaller.getResult("/diagnostic-tools/v2/ghost-locations/%s/dig-info" % location,dig_parameters)
 	# Get the resolved IP back from the the API
 	ipaddress = dig_result['digInfo']['answerSection'][0]['value']
+	# print "Got back " + ipaddress + "\n"
 
-	if ipaddress == '52.199.27.69':
-		print "northeast"
+	if ipaddress in apnortheast1ips:
 		northeast += 1
-	elif ipaddress == '52.199.227.76':
-		print "northeast"
-		northeast += 1
-	elif ipaddress == '52.76.187.185':
-		print "southeast"
+	elif ipaddress in apsoutheast1ips:
 		southeast += 1
-	elif ipaddress == '13.250.195.87':
-		print "southeast"
-		southeast += 1
+	elif ipaddress in euwest1ips:
+		euwest += 1
+	elif ipaddress in eucentral1ips:
+		eucentral += 1
 	else:
 		print "Not recognised" + ipaddress
 	total += 1
@@ -113,5 +132,7 @@ for num in range(1,100):
 
 print "northeast: " + str(northeast)
 print "southeast: " + str(southeast)
+print "euwest: " + str(euwest)
+print "eucentral: " + str(eucentral)
 print "not recognised" + str(notrecognised)
 print "total: " + str(total)

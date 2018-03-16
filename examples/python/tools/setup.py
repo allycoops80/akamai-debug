@@ -5,10 +5,10 @@ from setuptools import setup, find_packages
 setup(
     name='akamaikickstart', 
     version='1.0.0', 
-    description='Bootcamp examples for Akamai {OPEN} APIs',
-    author='Kirsten Hunter',
-    author_email='khunter@akamai.com',
-    url='https://github.com/akamai-open/api-kickstart',
+    description='Debug tooling for Akamai {OPEN} APIs',
+    author='Alan Cooper',
+    author_email='alan.cooper@skyscanner.net',
+    url='https://github.com/allycoops80/akamai-debug',
     packages=find_packages(),
     install_requires = [
         'edgegrid-python>=1.0.10',

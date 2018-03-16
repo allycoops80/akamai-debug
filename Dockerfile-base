@@ -20,7 +20,9 @@ RUN add-apt-repository -y ppa:longsleep/golang-backports
 RUN apt-get update
 RUN apt-get -y upgrade
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y -q libssl-dev python-all wget vim python-pip php php-curl ruby-dev nodejs-dev npm php-pear php-dev ruby perl golang-go git
-RUN pip install httpie-edgegrid 
+RUN pip install --upgrade pip
+RUN pip install httpie-edgegrid
+RUN pip install dnspython
 RUN npm install
 RUN npm install -g n; n 7.0.0
 RUN mkdir /goopt
