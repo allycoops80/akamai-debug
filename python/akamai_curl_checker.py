@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 parser = argparse.ArgumentParser(description='Process command line options.')
 parser.add_argument('--verbose', '-v', default=False, action='count')
 parser.add_argument('--debug', '-d', default=False, action='count')
+parser.add_argument("url", help="The apex DNS entry you're testing")
 
 args = parser.parse_args()
 arguments = vars(args)
@@ -70,8 +71,8 @@ print "Testing from {} Akamai Network locations".format(location_count)
 results = {}
 results['Unknown'] = 0
 newCurl = {}
-newCurl['url'] = 'http://mobile.ds.skyscanner.net/g/apps-day-view/dummy'
-
+#newCurl['url'] = 'http://mobile.ds.skyscanner.net/g/apps-day-view/dummy'
+newCurl['url'] = args.url
 
 
 for num in range(0, location_count):
