@@ -21,9 +21,11 @@ limitations under the License.
 import logging
 import json
 import os
+import sys
 import argparse
 import requests
 import dns.resolver
+import time
 from http_calls import EdgeGridHttpCaller
 from akamai.edgegrid import EdgeGridAuth, EdgeRc
 
@@ -74,25 +76,35 @@ newCurl = {}
 #newCurl['url'] = 'http://mobile.ds.skyscanner.net/g/apps-day-view/dummy'
 newCurl['url'] = args.url
 
-
 for num in range(0, location_count):
-#for num in range(0, 3):
-    # Allow graceful 
+
     running = True
     region = 'Unknown'
     location = location_result['locations'][num]['id']
-    try:
-        curl_result = httpCaller.postResult('/diagnostic-tools/v2/ghost-locations/%s/curl-results' % location, json.dumps(newCurl))
-    except:
-        results['Unknown'] += 1   
-        print "Location: " + location + " failed"
-        running = False 
-    if running:
+    sys.stdout.write("\r%d - %s               " % (num, location))
+    sys.stdout.flush()
+    # Wrapping the API requests in a while rule
+    # This is because we see spurious 400s with no explanation
+    # So when we hit that, we back off for 10 seconds and retry until
+    # we get a result.
+    # NB if there's actually a problem with authentication the script 
+    # will get stuck here, infinitely
+
+    while True:
+        try:
+            curl_result = httpCaller.postResult('/diagnostic-tools/v2/ghost-locations/%s/curl-results' % location, json.dumps(newCurl), verbose)
+        except:
+            print "Location: " + location + " failed"
+            running = False 
+            continue
+        
         region = curl_result['curlResults']['responseHeaders']['X-Gateway-ServedBy']
         if region in results:
             results[region] += 1
         else:
             results[region] = 1
+
+        break
 
 print json.dumps(results)
     

@@ -49,7 +49,26 @@ class EdgeGridHttpCaller():
       if self.verbose: print( "LOG: GET %s %s %s" % (endpoint,status,endpoint_result.headers["content-type"]))
       self.httpErrors(endpoint_result.status_code, path, endpoint_result.json())
       return endpoint_result.json()
-    
+ 
+    def getResultHeaders(self, endpoint, parameters=None):
+      path = endpoint
+      endpoint_result = self.session.get(parse.urljoin(self.baseurl,path), params=parameters)
+      if self.verbose: print (">>>\n" + json.dumps(endpoint_result.json(), indent=2) + "\n<<<\n")
+      status = endpoint_result.status_code
+      if self.verbose: print( "LOG: GET %s %s %s" % (endpoint,status,endpoint_result.headers["content-type"]))
+      #self.httpErrors(endpoint_result.status_code, path, endpoint_result.json())
+      # Adding rate limit information into the result so we can make informed
+      # decisions about how hard to hammer the API
+      ratelimit = 0
+      if status == 200:
+        dictresult = endpoint_result.json()
+        ratelimit = endpoint_result.headers['X-RateLimit-Remaining']
+      else:
+        dictresult = {}
+      dictresult['ratelimit'] = ratelimit
+      dictresult['statuscode'] = status
+      return dictresult
+
     def httpErrors(self, status_code, endpoint, result):
       if not isinstance(result, list):
       	details = result.get('detail') or result.get('details') or ""
@@ -102,8 +121,10 @@ class EdgeGridHttpCaller():
         status = endpoint_result.status_code
         if self.verbose: print ("LOG: POST %s %s %s" % (path,status,endpoint_result.headers["content-type"]))
         if status == 204:
-           return {}
-        self.httpErrors(endpoint_result.status_code, path, endpoint_result.json())
+          return {}
+        if status != 200:
+          return {}
+        #self.httpErrors(endpoint_result.status_code, path, endpoint_result.json())
         
         if self.verbose: print (">>>\n" + json.dumps(endpoint_result.json(), indent=2) + "\n<<<\n")
         return endpoint_result.json()
