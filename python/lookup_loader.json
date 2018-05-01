@@ -1,0 +1,5 @@
+import json
+
+with open('lookup.json') as json_data:
+    ipTable = json.load(json_data)
+ 

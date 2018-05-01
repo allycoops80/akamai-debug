@@ -2,21 +2,7 @@
 # Very basic script validate DNS traffic weightings
 # from within the Akamai network.
 #
-""" Copyright 2015 Akamai Technologies, Inc. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
 
 import logging
 import json
@@ -73,38 +59,59 @@ print "Testing from {} Akamai Network locations".format(location_count)
 results = {}
 results['Unknown'] = 0
 newCurl = {}
-#newCurl['url'] = 'http://mobile.ds.skyscanner.net/g/apps-day-view/dummy'
 newCurl['url'] = args.url
 
-for num in range(0, location_count):
+attempts = 0
+retries = 0
 
+
+for num in range(0, location_count):
+#for num in range(0, 4):
     running = True
     region = 'Unknown'
     location = location_result['locations'][num]['id']
-    sys.stdout.write("\r%d - %s               " % (num, location))
-    sys.stdout.flush()
     # Wrapping the API requests in a while rule
     # This is because we see spurious 400s with no explanation
     # So when we hit that, we back off for 10 seconds and retry until
     # we get a result.
-    # NB if there's actually a problem with authentication the script 
+    # NB if there's actually a problem with authentication the script
     # will get stuck here, infinitely
-
+    attempts = 0
     while True:
-        try:
-            curl_result = httpCaller.postResult('/diagnostic-tools/v2/ghost-locations/%s/curl-results' % location, json.dumps(newCurl), verbose)
-        except:
-            print "Location: " + location + " failed"
-            running = False 
+        attempts += 1
+        curl_result = httpCaller.postResultHeaders(
+            '/diagnostic-tools/v2/ghost-locations/%s/curl-results' \
+            % location, json.dumps(newCurl), verbose)
+        if curl_result['statuscode'] != 200:
+            retries += 1
+            backoff = backoff * 2
+            sys.stdout.write("\r%d - %s - Status Code: %s. Rate Limit Remaining: %s. Attempt: %s Retries: %s. Backoff %s"
+                             % (num, location, str(curl_result['statuscode']), 
+                                str(curl_result['ratelimit']), attempts, retries, backoff))
+            sys.stdout.flush()
+            time.sleep(backoff)
             continue
-        
-        region = curl_result['curlResults']['responseHeaders']['X-Gateway-ServedBy']
-        if region in results:
-            results[region] += 1
+        elif curl_result['ratelimit'] is '0':
+            retries += 1
+            backoff = backoff * 2
+            sys.stdout.write("\r%d - %s - Status Code: %s. Rate Limit Remaining: %s. Attempt: %s Retries: %s. Backoff %s"
+                             % (num, location, str(curl_result['statuscode']), 
+                                str(curl_result['ratelimit']), attempts, retries, backoff))
+            continue
         else:
-            results[region] = 1
-
-        break
+            backoff = 1 + (16 - (int(curl_result['ratelimit'])))
+            sys.stdout.write("\r%d - %s - Status Code: %s. Rate Limit Remaining: %s. Attempt: %s Retries: %s. Backoff %s"
+                             % (num, location, str(curl_result['statuscode']), 
+                                str(curl_result['ratelimit']), attempts, retries, backoff))
+            sys.stdout.flush()
+            time.sleep(backoff)
+            break
+        
+    region = curl_result['curlResults']['responseHeaders']['X-Gateway-ServedBy']
+    if region in results:
+        results[region] += 1
+    else:
+        results[region] = 1
 
 print json.dumps(results)
     

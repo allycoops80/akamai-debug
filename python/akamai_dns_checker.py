@@ -6,10 +6,10 @@ import logging
 import json
 import os
 import argparse
-import requests
-import dns.resolver
 import sys
 import time
+import requests
+import dns.resolver
 from http_calls import EdgeGridHttpCaller
 from akamai.edgegrid import EdgeGridAuth, EdgeRc
 
@@ -58,14 +58,14 @@ apex_hostname = {"hostName": args.apex}
 # The intermediate entries that the apex entry should be resolving to
 # according to weight and/or geo mapping
 intermediate_hostnames = ['gw-elb-an-GatewayL-1DEVREX4ACQ0G-64516277.eu-west-1.elb.amazonaws.com',
-                                            'gw-elb-an-GatewayL-132R0P4ZEIMA4-1748283622.eu-central-1.elb.amazonaws.com',
-                                            'gw-elb-an-GatewayL-1319URO4P1DEB-1559723615.ap-southeast-1.elb.amazonaws.com',
-                                            'gw-elb-an-GatewayL-LLICG84YWAGQ-845349475.ap-northeast-1.elb.amazonaws.com']
+                          'gw-elb-an-GatewayL-132R0P4ZEIMA4-1748283622.eu-central-1.elb.amazonaws.com',
+                          'gw-elb-an-GatewayL-1319URO4P1DEB-1559723615.ap-southeast-1.elb.amazonaws.com',
+                          'gw-elb-an-GatewayL-LLICG84YWAGQ-845349475.ap-northeast-1.elb.amazonaws.com']
 
 lookup_counter = {}
 endpointIPs = {}
 
-# Get the IP addresses currently associated with the intermediate 
+# Get the IP addresses currently associated with the intermediate
 # hostnames to use as a lookup table later
 for endpoint in intermediate_hostnames:
     resolver_result = dns.resolver.query(endpoint)
@@ -83,33 +83,34 @@ retries = 0
 # Only recording the first address as this is enough for region match
 # Exponential backoff for bad repeated bad responses as API is rate limited
 attempts = 0
-for num in range(0, location_count):
-#for num in range(0, 9):
+#for num in range(0, location_count):
+for num in range(0, 19):
     backoff = 2
     location = location_result['locations'][num]['id']
     while True:
         attempts += 1
         # sys.stdout.write("\r%d - %s               " % (num, location))
         # sys.stdout.flush()
-        dig_result = httpCaller.getResultHeaders("/diagnostic-tools/v2/ghost-locations/%s/dig-info" % location, apex_hostname)
+        dig_result = httpCaller.getResultHeaders("/diagnostic-tools/v2/ghost-locations/%s/dig-info"
+                                                 % location, apex_hostname)
         if dig_result['statuscode'] != 200:
             retries += 1
             backoff = backoff * 2
-            sys.stdout.write("\r%d - %s - Status Code: %s. Rate Limit Remaining: %s. Attempt: %s Retries: %s. Backoff %s                                      " % (num, location, str(dig_result['statuscode']), str(dig_result['ratelimit']), attempts, retries, backoff))
+            sys.stdout.write("\r%d - %s - Status Code: %s. Rate Limit Remaining: %s. Attempt: %s Retries: %s. Backoff %s"
+                             % (num, location, str(dig_result['statuscode']), str(dig_result['ratelimit']), attempts, retries, backoff))
             sys.stdout.flush()
             time.sleep(backoff)
-            
             continue
-        
         elif dig_result['ratelimit'] is '0':
             retries += 1
             backoff = backoff * 2
-            sys.stdout.write("\r%d - %s - Status Code: %s. Rate Limit Remaining: %s. Attempt: %s Retries: %s. Backoff %s                                      " % (num, location, str(dig_result['statuscode']), str(dig_result['ratelimit']), attempts, retries, backoff))
+            sys.stdout.write("\r%d - %s - Status Code: %s. Rate Limit Remaining: %s. Attempt: %s Retries: %s. Backoff %s"
+                             % (num, location, str(dig_result['statuscode']), str(dig_result['ratelimit']), attempts, retries, backoff))
             continue
-
         else:
-            backoff = 1 + (10 - (int(dig_result['ratelimit'])))
-            sys.stdout.write("\r%d - %s - Status Code: %s. Rate Limit Remaining: %s. Attempt: %s Retries: %s. Backoff %s                                      " % (num, location, str(dig_result['statuscode']), str(dig_result['ratelimit']), attempts, retries, backoff))
+            backoff = 1 + (16 - (int(dig_result['ratelimit'])))
+            sys.stdout.write("\r%d - %s - Status Code: %s. Rate Limit Remaining: %s. Attempt: %s Retries: %s. Backoff %s"
+                             % (num, location, str(dig_result['statuscode']), str(dig_result['ratelimit']), attempts, retries, backoff))
             sys.stdout.flush()
             time.sleep(backoff)
             break
@@ -121,16 +122,16 @@ for num in range(0, location_count):
     for i in dig_result['digInfo']['answerSection']:
         if i['recordType'] == 'A':
             if location in resultsTable:
-                    resultsTable[location].append(i['value'])
+                resultsTable[location].append(i['value'])
             else:
-                    resultsTable[location] = []
-                    resultsTable[location].append(i['value'])
+                resultsTable[location] = []
+                resultsTable[location].append(i['value'])
 
 # Initialise a dictionary for tracking counts of hits per region
 for region in intermediate_hostnames:
     regionCounts[region] = 0
 
-# run through all the dig results and match to a region in the 
+# run through all the dig results and match to a region in the
 # lookup table and increment a counter for each matched intermediate
 
 # results table now has a list of Akamai locations mapped to IP
@@ -143,7 +144,10 @@ print json.dumps(regionCounts)
 
 # # display the results
 # for region in intermediate_hostnames:
-#     print region + ": " +  str(regionCounts[region]) + " - " + str(round((float(regionCounts[region]) / (float(location_count)) * 100), 2)) + "%"
+#     print region
+#            + ": " +  str(regionCounts[region])
+#            + " - " + str(round((float(regionCounts[region]) / (float(location_count)) * 100), 2))
+#            + "%"
 # print "not attributed " + str(unknowns)
 
 
